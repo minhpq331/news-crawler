@@ -1,7 +1,60 @@
-// src/index.ts
 import axios from 'axios';
 import xml2js from 'xml2js';
 import moment from 'moment';
+import { ProgressCallback, CrawlerResult } from './crawler';
+
+export async function crawlVnExpress(onProgress: ProgressCallback): Promise<CrawlerResult[]> {
+    // Get last 7 days (don't include today)
+    const dates = Array.from({length: 7}, (_, i) => moment().subtract(i + 1, 'days'));
+    onProgress(5, 'Fetching article URLs from sitemaps...');
+    
+    // Fetch all URLs from sitemaps
+    const allUrls = await Promise.all(dates.map(date => fetchSitemapUrls(date)));
+    const urls = allUrls.flat();
+    onProgress(15, 'Extracting article IDs...');
+    
+    // Extract article IDs
+    const articleIds = extractArticleIds(urls);
+    onProgress(25, 'Fetching article details...');
+    
+    // Fetch article details
+    const articles = await fetchArticleDetails(articleIds);
+    onProgress(50, 'Fetching comment likes...');
+    
+    // Fetch comment likes for each article in parallel, 10 at a time
+    const totalBatches = Math.ceil(articles.length / 10);
+    let completedBatches = 0;
+    
+    for (let i = 0; i < articles.length; i += 10) {
+        const batch = articles.slice(i, i + 10);
+        const results = await Promise.all(
+            batch.map(article => fetchCommentLikes(article))
+        );
+        batch.forEach((article, index) => {
+            article.totalLikes = results[index].likes;
+            article.totalComments = results[index].comments;
+        });
+        
+        completedBatches++;
+        const progress = 50 + Math.floor((completedBatches / totalBatches) * 45);
+        onProgress(progress, `Processing articles ${i + 1}-${Math.min(i + 10, articles.length)}...`);
+    }
+    
+    // Sort and get top 10 articles by total likes
+    const topArticles = articles
+        .sort((a, b) => b.totalLikes - a.totalLikes)
+        .slice(0, 10);
+    
+    onProgress(100, 'Done!');
+    
+    // Return results in CrawlerResult format
+    return topArticles.map(article => ({
+        title: article.title,
+        url: article.url,
+        reactions: article.totalLikes,
+        comments: article.totalComments
+    }));
+}
 
 interface Article {
     id: string;
@@ -9,6 +62,7 @@ interface Article {
     title: string;
     url: string;
     totalLikes: number;
+    totalComments: number;
 }
 
 interface ArticleBasicResponse {
@@ -76,7 +130,8 @@ async function fetchArticleDetails(articleIds: string[]): Promise<Article[]> {
                 type: item.article_type,
                 title: item.title,
                 url: item.share_url,
-                totalLikes: 0
+                totalLikes: 0,
+                totalComments: 0
             }));
             articles.push(...batchArticles);
         } catch (error) {
@@ -87,12 +142,13 @@ async function fetchArticleDetails(articleIds: string[]): Promise<Article[]> {
     return articles;
 }
 
-async function fetchCommentLikes(article: Article): Promise<number> {
+async function fetchCommentLikes(article: Article): Promise<{likes: number, comments: number}> {
     try {
         let totalLikes = 0;
+        let totalComments = 0;
         let offset = 0;
         const limit = 100;
-        const maxRounds = 20; // Failsafe to prevent infinite loops
+        const maxRounds = 20;
         let currentRound = 0;
 
         while (currentRound < maxRounds) {
@@ -115,9 +171,9 @@ async function fetchCommentLikes(article: Article): Promise<number> {
             });
 
             const comments = response.data.data.items;
+            totalComments += comments.length;
             totalLikes += comments.reduce((sum, comment) => sum + comment.userlike, 0);
 
-            // If we got fewer comments than limit, we've reached the end
             if (comments.length < limit) {
                 break;
             }
@@ -126,54 +182,9 @@ async function fetchCommentLikes(article: Article): Promise<number> {
             currentRound++;
         }
 
-        return totalLikes;
+        return { likes: totalLikes, comments: totalComments };
     } catch (error) {
         console.error(`Error fetching comments for article ${article.id}:`, error);
-        return 0;
+        return { likes: 0, comments: 0 };
     }
 }
-
-async function main() {
-    // Get last 7 days (don't include today)
-    const dates = Array.from({length: 7}, (_, i) => moment().subtract(i + 1, 'days'));
-    // const dates = Array.from({length: 1}, (_, i) => moment().subtract(i+1, 'days'));
-    
-    // Fetch all URLs from sitemaps
-    const allUrls = await Promise.all(dates.map(date => fetchSitemapUrls(date)));
-    const urls = allUrls.flat();
-    
-    // Extract article IDs
-    const articleIds = extractArticleIds(urls);
-    
-    // Fetch article details
-    const articles = await fetchArticleDetails(articleIds);
-    
-    // Fetch comment likes for each article in parallel, 10 at a time
-    for (let i = 0; i < articles.length; i += 10) {
-        const batch = articles.slice(i, i + 10);
-        const results = await Promise.all(
-            batch.map(article => fetchCommentLikes(article))
-        );
-        console.log(i);
-        batch.forEach((article, index) => {
-            article.totalLikes = results[index];
-        });
-    }
-    
-    // Sort and get top 10 articles by total likes
-    const topArticles = articles
-        .sort((a, b) => b.totalLikes - a.totalLikes)
-        .slice(0, 10);
-    
-    // Output results
-    console.log('Top 10 Articles by Comment Likes:');
-    topArticles.forEach((article, index) => {
-        console.log(`${index + 1}. ${article.title}`);
-        console.log(`   Total Likes: ${article.totalLikes}`);
-        console.log(`   URL: ${article.url}`);
-        console.log('---');
-    });
-}
-
-// Run the script
-main().catch(console.error);

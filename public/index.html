@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News Crawler</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">News Crawler</h1>
+        
+        <div class="form-group">
+            <label>Select News Source:</label>
+            <select class="form-control" id="newsSource">
+                <option value="vnexpress">VnExpress</option>
+                <option value="tuoitre">Tuổi Trẻ</option>
+            </select>
+        </div>
+
+        <button id="runCrawler" class="btn btn-primary mb-4">Run Crawler</button>
+
+        <div class="progress mb-4" style="height: 25px;">
+            <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;">0%</div>
+        </div>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Title</th>
+                    <th>Reactions</th>
+                    <th>Comments</th>
+                    <th>URL</th>
+                </tr>
+            </thead>
+            <tbody id="resultsTable">
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html> 
