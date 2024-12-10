@@ -96,7 +96,6 @@ async function fetchCommentLikes(article: Article): Promise<number> {
                 'Origin': 'https://vnexpress.net'
             }
         });
-        console.log(response.data);
         return response.data.data.items.reduce((sum, comment) => sum + comment.userlike, 0);
     } catch (error) {
         console.error(`Error fetching comments for article ${article.id}:`, error);
@@ -112,8 +111,6 @@ async function main() {
     // Fetch all URLs from sitemaps
     const allUrls = await Promise.all(dates.map(date => fetchSitemapUrls(date)));
     const urls = allUrls.flat();
-
-    console.log(urls);
     
     // Extract article IDs
     const articleIds = extractArticleIds(urls);
