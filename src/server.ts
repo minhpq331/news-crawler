@@ -1,8 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { crawlVnExpress } from './vnexpress';
-import { crawlTuoiTre } from './tuoitre';
+import { getCrawler } from './services/crawlers';
 
 const app = express();
 const port = 3000;
@@ -29,18 +28,10 @@ app.post('/api/crawl', async (req, res) => {
     
     try {
         let results;
-        if (source === 'vnexpress') {
-            results = await crawlVnExpress((progress) => {
-                // Send progress through SSE
-                res.write(`data: ${JSON.stringify({ progress })}\n\n`);
-            });
-        } else if (source === 'tuoitre') {
-            results = await crawlTuoiTre((progress) => {
-                res.write(`data: ${JSON.stringify({ progress })}\n\n`);
-            });
-        } else {
-            throw new Error('Invalid source');
-        }
+        const crawler = getCrawler(source);
+        results = await crawler.crawl(7, (progress: number, message?: string) => {
+            res.write(`data: ${JSON.stringify({ progress, message })}\n\n`);
+        });
 
         // Send final results
         res.write(`data: ${JSON.stringify({ completed: true, results })}\n\n`);
