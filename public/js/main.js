@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressBar = document.getElementById('progressBar');
     const resultsTable = document.getElementById('resultsTable');
     const sourceSelect = document.getElementById('newsSource');
+    const progressText = document.getElementById('progressText');
 
     runButton.addEventListener('click', async () => {
         try {
@@ -14,7 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
             progressBar.textContent = '0%';
 
             // Start the crawling process
-            const response = await fetch('http://localhost:3000/api/crawl', {
+            const baseUrl = window.API_BASE_URL || 'http://localhost:3000';
+            const response = await fetch(`${baseUrl}/api/crawl`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -45,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (data.progress) {
                             progressBar.style.width = `${data.progress}%`;
                             progressBar.textContent = `${data.progress}%`;
+                            progressText.textContent = data.message;
                         }
 
                         if (data.completed && data.results) {
