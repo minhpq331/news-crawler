@@ -1,5 +1,5 @@
 # news-crawler
-![deploy](https://github.com/minhpq331/news-crawler/actions/workflows/deploy.yml/badge.svg)
+![ci](https://github.com/minhpq331/news-crawler/actions/workflows/ci.yml/badge.svg) ![Codecov](https://img.shields.io/codecov/c/github/minhpq331/news-crawlers)
 
 Crawlers from VnExpress and TuoiTre to find out the most popular news.
 
