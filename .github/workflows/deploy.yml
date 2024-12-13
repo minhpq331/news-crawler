@@ -37,12 +37,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          host_key: accept-new
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          # Format: username@hostname
-          host: ${{ secrets.SSH_ENDPOINT }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
           script: |
             # Update image tag in docker-compose.yml
             sed -i 's|image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|' ${{ env.DOCKER_COMPOSE_PATH }}
