@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    ports:
+      - 3000:3000
+    restart: always
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+    working_dir: /app
+    command: npm run dev
