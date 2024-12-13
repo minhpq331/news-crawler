@@ -22,7 +22,7 @@ You can try it out at [https://news.toanhoczero.com](https://news.toanhoczero.co
 - VnExpress: [https://usi-saas.vnexpress.net/index/get](https://usi-saas.vnexpress.net/index/get) to get the comments
 - TuoiTre: [https://id.tuoitre.vn/api/getlist-comment.api](https://id.tuoitre.vn/api/getlist-comment.api) to get the comments
 
-4. Display top 10 news with most comment's reactions and realtime crawling progress through the web UI with the help of Server Send Events.
+4. Display top 10 news with most comment's reactions and realtime crawling progress through the web UI with the help of Server Sent Events.
 
 ## Prerequisites
 

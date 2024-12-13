@@ -3,6 +3,9 @@ name: Build and Deploy
 on:
   push:
     branches: [ "main" ]
+    exclude:
+      - 'docs/**'
+      - '*.md'
   workflow_dispatch:
 
 env:
