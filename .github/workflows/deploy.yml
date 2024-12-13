@@ -53,8 +53,9 @@ jobs:
             
             # Wait for deployment to complete
             timeout=300
+            sleep 5
             while [ $timeout -gt 0 ]; do
-              if docker compose ps | grep -q "running"; then
+              if docker compose ps app | grep -q "Up"; then
                 echo "Deployment completed successfully"
                 exit 0
               fi
