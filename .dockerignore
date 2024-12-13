@@ -4,5 +4,6 @@ LICENSE
 node_modules
 dist
 coverage
+docs
 Dockerfile
 docker-compose*
