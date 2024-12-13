@@ -73,4 +73,6 @@ To run the test, you can use `npm run test` or `npm run test:coverage` to displa
 
 I'm using [Monit](https://mmonit.com/monit/) to basic monitoring the server status with some insights about the host's CPU, memory, disk, network, process, etc. You can see the dashboard at [https://mon.toanhoczero.com/](https://mon.toanhoczero.com/). The current scrape interval is 15 seconds.
 
+User and password for the dashboard is `admin:monit`. This user is read only.
+
 ![monit](docs/monit.png)
