@@ -16,10 +16,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run tests
+      - name: Install dependencies
         run: |
           npm install
-          npm run test:coverage
+
+      - name: Run tests
+        run: |
+          npm run test
 
   build-and-push:
     runs-on: ubuntu-24.04
