@@ -1,0 +1,66 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: news-crawler
+  DOCKER_COMPOSE_PATH: /data/news-crawler/docker-compose.yml
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }},${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host_key: accept-new
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Format: username@hostname
+          host: ${{ secrets.SSH_ENDPOINT }}
+          script: |
+            # Update image tag in docker-compose.yml
+            sed -i 's|image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|' ${{ env.DOCKER_COMPOSE_PATH }}
+            
+            # Deploy using docker compose
+            cd $(dirname ${{ env.DOCKER_COMPOSE_PATH }})
+            docker compose pull
+            docker compose up -d
+            
+            # Wait for deployment to complete
+            timeout=300
+            while [ $timeout -gt 0 ]; do
+              if docker compose ps | grep -q "running"; then
+                echo "Deployment completed successfully"
+                exit 0
+              fi
+              sleep 5
+              timeout=$((timeout-5))
+            done
+            echo "Deployment timeout"
+            exit 1
