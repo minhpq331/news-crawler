@@ -1,0 +1,8 @@
+*.md
+LICENSE
+.github
+node_modules
+dist
+coverage
+Dockerfile
+docker-compose*
