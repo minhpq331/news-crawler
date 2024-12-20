@@ -1,9 +1,48 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const runButton = document.getElementById('runCrawler');
     const progressBar = document.getElementById('progressBar');
     const resultsTable = document.getElementById('resultsTable');
     const sourceSelect = document.getElementById('newsSource');
     const progressText = document.getElementById('progressText');
+
+    async function loadResults(source) {
+        try {
+            const baseUrl = window.API_BASE_URL || 'http://localhost:3000';
+            const response = await fetch(`${baseUrl}/api/results/${source}`);
+            
+            if (response.status === 404) {
+                resultsTable.innerHTML = '';
+                progressText.innerHTML = `
+                    <div class="alert alert-warning" role="alert">
+                        No data available for ${source}. Please run the crawler to fetch data.
+                    </div>`;
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch results');
+            }
+
+            const data = await response.json();
+            displayResults(data.results, data.updatedAt);
+        } catch (error) {
+            console.error('Error loading cached results:', error);
+            progressText.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    Error loading results. Please try again later.
+                </div>`;
+        }
+    }
+
+    // Load initial results
+    await loadResults(sourceSelect.value);
+
+    // Handle source change
+    sourceSelect.addEventListener('change', async () => {
+        progressBar.style.width = '0%';
+        progressBar.textContent = '0%';
+        await loadResults(sourceSelect.value);
+    });
 
     runButton.addEventListener('click', async () => {
         try {
@@ -68,8 +107,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function displayResults(results) {
+function displayResults(results, updatedAt) {
     const resultsTable = document.getElementById('resultsTable');
+    const progressText = document.getElementById('progressText');
+    
+    if (updatedAt) {
+        const date = new Date(updatedAt);
+        progressText.textContent = `Last updated: ${date.toLocaleString()}`;
+    }
     
     resultsTable.innerHTML = results
         .map((result, index) => `
