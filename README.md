@@ -107,6 +107,8 @@ For both crawlers, the comments result is not cached as the number of reactions 
 
 I'm using [Monit](https://mmonit.com/monit/) to basic monitoring the server status with some insights about the host's CPU, memory, disk, network, process, etc. You can see the dashboard at [https://mon.toanhoczero.com/](https://mon.toanhoczero.com/). The current scrape interval is 15 seconds.
 
+Beside the host's status, I also monitor the crawler's status and the database's status with the rule `app_running` and `postgres_running`.
+
 User and password for the dashboard is `admin:monit`. This user is read only.
 
 ![monit](docs/monit.png)
