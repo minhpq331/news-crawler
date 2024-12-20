@@ -27,6 +27,7 @@ You can try it out at [https://news.toanhoczero.com](https://news.toanhoczero.co
 ## Prerequisites
 
 - Node.js 22
+- PostgreSQL 16
 - Docker
 - Docker Compose
 
@@ -42,12 +43,22 @@ git clone https://github.com/minhpq331/news-crawler.git
 npm install
 ```
 
-3. Run the crawler with hot reload
+3. Create environment variables file from the example. This work with the default docker compose file.
+```
+cp .env.example .env
+```
+
+4. Run the database only
+```
+docker compose up -d postgres
+```
+
+5. Run the crawler on your local machine with hot reload
 ```
 npm run dev
 ```
 
-4. Open `http://localhost:3000` to view the web UI.
+6. Open `http://localhost:3000` to view the web UI.
 
 Or you can use docker compose to quickly run the crawler without installing any dependencies.
 
@@ -59,14 +70,37 @@ To run the test, you can use `npm run test` or `npm run test:coverage` to displa
 ## Run in production
 
 1. Copy `docker-compose.deploy.yml` to production server.
-2. Run `docker compose -f docker-compose.deploy.yml up -d` to start the production server.
-3. By default, the server will be deployed to `http://127.0.0.1:3000` and need a reverse proxy like nginx to handle domain mapping / SSL termination. You can change the port to 80 if you want to expose it directly.
+2. Generate a random password for the database and put it in the `.env` file on the same directory with `docker-compose.deploy.yml`.
+
+```
+echo "DB_PASSWORD=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9-_')" > .env
+```
+
+3. Run the following command to start the production server.
+
+```
+docker compose -f docker-compose.deploy.yml up -d
+```
+
+4. By default, the server will be deployed to `http://127.0.0.1:3000` and need a reverse proxy like nginx to handle domain mapping / SSL termination. You can change the port to 80 if you want to expose it directly.
+
+## Using database to cache data
+
+To avoid crawling the data from beginning every time you run the crawler, I use a database to cache the data. In this case is PostgreSQL.
+
+- The final result (list 10 articles with most reactions) from each crawler is stored in the database to be used for the next time you visit the site or change the crawler select box.
+
+Beside the common cache of final result, there are different caching strategies for different crawlers:
+
+- VnExpress: cache the sitemap urls for each day except the current day and article information.
+- TuoiTre: cache the sitemap urls for each month except the current month. Article information is not needed to be cached.
+
+For both crawlers, the comments result is not cached as the number of reactions is not stable and can change over time.
 
 ## Some caveats
 
 - The comment count for each news on my site may differ from the number of comments display on the original site due to the different way to count the comments. VnExpress counts the all the comments including replies, while my site only counts the top level comments. This apply to reactions as well because of your example.
 - VnExpress is blocking sitemap access from Vietnam IP addresses, so in order to run it locally, you have to use a VPN to make it work.
-- For the simplicity of this project, I'm not using any database to store the data and will crawl the data from beginning every time you run the crawler.
 - http / sock proxy is common way to bypass IP blocking / restriction when running crawler, but it's not implemented in this project yet.
 
 ## Monitoring

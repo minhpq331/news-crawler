@@ -5,10 +5,13 @@ import path from 'path';
 import { getCrawler } from './services/crawlers';
 import { AppDataSource } from './config/database';
 import { CrawlResult } from './entities/CrawlResult';
-import { LessThan } from "typeorm";
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
