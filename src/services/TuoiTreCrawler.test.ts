@@ -2,15 +2,37 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import moment from 'moment';
 import { TuoiTreCrawler } from './TuoiTreCrawler';
+import { AppDataSource } from '../config/database';
 
 describe('TuoiTreCrawler', () => {
     let mock: MockAdapter;
     let crawler: TuoiTreCrawler;
     let mockProgress: jest.Mock;
+    let mockSitemapRepo: any;
+    let mockArticleRepo: any;
 
     beforeEach(() => {
         const axiosInstance = axios.create();
         mock = new MockAdapter(axiosInstance);
+        
+        // Mock repositories
+        mockSitemapRepo = {
+            findOne: jest.fn(),
+            upsert: jest.fn()
+        };
+        
+        mockArticleRepo = {
+            find: jest.fn(),
+            upsert: jest.fn()
+        };
+
+        // Mock AppDataSource.getRepository
+        jest.spyOn(AppDataSource, 'getRepository').mockImplementation((entity: any) => {
+            if (entity.name === 'CachedSitemap') return mockSitemapRepo;
+            if (entity.name === 'CachedArticle') return mockArticleRepo;
+            return {};
+        });
+
         crawler = new TuoiTreCrawler(axiosInstance);
         mockProgress = jest.fn();
     });
@@ -67,7 +89,7 @@ describe('TuoiTreCrawler', () => {
 
         // Verify progress callbacks
         expect(mockProgress).toHaveBeenCalledWith(5, expect.any(String));
-        expect(mockProgress).toHaveBeenCalledWith(100, 'Done!');
+        expect(mockProgress).toHaveBeenCalledWith(100, 'Completed!');
     });
 
     it('should handle sitemap fetch errors', async () => {
@@ -134,5 +156,109 @@ describe('TuoiTreCrawler', () => {
         const results = await crawler.crawl(1, mockProgress);
         expect(results.map(r => r.title)).toContain('Valid Article');
         expect(results.map(r => r.title)).not.toContain('Old Article');
+    });
+
+    it('should bypass cache for current month sitemap but use cache for previous month', async () => {
+        const currentDate = moment().subtract(1, 'days');
+        const previousMonthDate = moment().subtract(1, 'days').startOf('month').subtract(1, 'days');
+        
+        const currentSitemapUrl = `https://tuoitre.vn/StaticSitemaps/sitemaps-${currentDate.format('YYYY')}-${currentDate.format('MM')}.xml`;
+        
+        // Set up cache for both months
+        mockSitemapRepo.findOne.mockImplementation((options: any) => {
+            const dateStr = options.where.date;
+            if (dateStr.includes(previousMonthDate.format('YYYY-MM'))) {
+                return Promise.resolve({
+                    urls: [{
+                        url: `https://tuoitre.vn/article-${previousMonthDate.format('YYYYMMDD')}01.htm`,
+                        title: 'Cached Previous Month Article'
+                    }]
+                });
+            }
+            return Promise.resolve({
+                urls: [{
+                    url: `https://tuoitre.vn/article-${currentDate.format('YYYYMMDD')}01.htm`,
+                    title: 'Cached Current Month Article'
+                }]
+            });
+        });
+
+        // Mock the current month sitemap response
+        mock.onGet(currentSitemapUrl).reply(200, `
+            <?xml version="1.0" encoding="UTF-8"?>
+            <urlset>
+                <url>
+                    <loc>https://tuoitre.vn/article-${currentDate.format('YYYYMMDD')}02.htm</loc>
+                    <image:image>
+                        <image:title><![CDATA[Fresh Current Month Article]]></image:title>
+                    </image:image>
+                </url>
+            </urlset>
+        `);
+
+        // Mock comments response
+        mock.onGet('https://id.tuoitre.vn/api/getlist-comment.api').reply(200, {
+            Data: JSON.stringify([])
+        });
+
+        const results = await crawler.crawl(40, mockProgress);
+
+        // Should get both the fresh current month article and cached previous month article
+        expect(results).toHaveLength(2);
+        expect(results.map(r => r.title)).toContain('Fresh Current Month Article');
+        expect(results.map(r => r.title)).toContain('Cached Previous Month Article');
+        
+        // Verify cache was checked for previous month
+        expect(mockSitemapRepo.findOne).toHaveBeenCalledWith({
+            where: {
+                source: 'tuoitre',
+                date: expect.stringContaining(previousMonthDate.format('YYYY-MM')),
+            }
+        });
+        
+        // Verify only current month sitemap was fetched from network
+        const sitemapRequests = mock.history.get.filter(req => req.url?.includes('StaticSitemaps'));
+        expect(sitemapRequests).toHaveLength(1);
+        expect(sitemapRequests[0].url).toBe(currentSitemapUrl);
+    });
+
+    it('should cache sitemap data after fetching', async () => {
+        const sitemapDate = moment().subtract(40, 'days'); // Use previous month to ensure caching
+        const dateStr = sitemapDate.format('YYYY-MM-DD');
+        const sitemapUrl = `https://tuoitre.vn/StaticSitemaps/sitemaps-${sitemapDate.format('YYYY')}-${sitemapDate.format('MM')}.xml`;
+        
+        // Mock cache miss
+        mockSitemapRepo.findOne.mockResolvedValue(null);
+
+        // Mock sitemap response
+        mock.onGet(sitemapUrl).reply(200, `
+            <?xml version="1.0" encoding="UTF-8"?>
+            <urlset>
+                <url>
+                    <loc>https://tuoitre.vn/article-${sitemapDate.format('YYYYMMDD')}01.htm</loc>
+                    <image:image>
+                        <image:title><![CDATA[Test Article]]></image:title>
+                    </image:image>
+                </url>
+            </urlset>
+        `);
+
+        // Mock comments response
+        mock.onGet('https://id.tuoitre.vn/api/getlist-comment.api').reply(200, {
+            Data: JSON.stringify([])
+        });
+
+        await crawler.crawl(40, mockProgress);
+
+        // Verify cache operations
+        expect(mockSitemapRepo.findOne).toHaveBeenCalledWith({
+            where: { source: 'tuoitre', date: sitemapDate.startOf('month').format('YYYY-MM-DD') }
+        });
+
+        expect(mockSitemapRepo.upsert).toHaveBeenCalled();
+
+        // Verify network request was made
+        const sitemapRequests = mock.history.get.filter(req => req.url === sitemapUrl);
+        expect(sitemapRequests).toHaveLength(1);
     });
 }); 
